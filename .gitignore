@@ -1,0 +1,4 @@
+# ignore Cargo.lock for libraries, but not for binaries
+#Cargo.lock
+
+/target/

@@ -1,0 +1,15 @@
+[package]
+name = "stm32f3-systick"
+version = "0.1.0"
+authors = ["Sean Bolton <sean@smbolton.com>"]
+
+[dependencies]
+stm32f30x = "^0.4.1"
+
+[dependencies.cortex-m-rt]
+version = "^0.2.3"
+default-features = false  # disable 'exceptions' feature
+features = ["linker-script"]  # could add "panic-over-itm" or "panic-over-semihosting"
+
+[dependencies.cortex-m]
+version = "^0.2.7"
