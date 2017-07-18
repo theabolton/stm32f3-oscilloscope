@@ -1,4 +1,4 @@
-// systick
+// stm32f3-buttons: buttons to LEDs
 
 #![feature(core_intrinsics)]
 #![feature(used)]
