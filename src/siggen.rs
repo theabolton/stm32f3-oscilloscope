@@ -22,6 +22,8 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+use core;
+
 use cortex_m;
 use stm32f30x::{DAC, DMA2, GPIOA, RCC, TIM2};
 
@@ -88,7 +90,7 @@ pub fn siggen_setup() {
              .arpe().bits(1)   // ARR register is buffered
         });
         tim2.cr2.modify(|_, w| unsafe { w.mms().bits(0b010) }); // trigger output: generate update event
-        tim2.arr.write(|w| unsafe { w.bits(249) }); // 1kHz, can be changed by siggen_setfreq()
+        tim2.arr.write(|w| unsafe { w.bits(249) }); // 1kHz, can be changed by siggen_set_freq()
         tim2.psc.write(|w| unsafe { w.psc().bits(0) }); // prescaler of 1
         tim2.egr.write(|w| unsafe { w.ug().bits(1) }); // immediately update registers
 
@@ -167,5 +169,13 @@ pub fn siggen_setup() {
 
         // enable TIM2  
         tim2.cr1.modify(|_, w| unsafe { w.cen().bits(1) });
+    });
+}
+
+pub fn siggen_set_freq(freq: u32) {
+    let arr = core::cmp::max(36_000_000 / 144 / freq - 1, 1);
+    cortex_m::interrupt::free(|cs| {
+        let tim2 = TIM2.borrow(cs);
+        tim2.arr.write(|w| unsafe { w.bits(arr) });
     });
 }

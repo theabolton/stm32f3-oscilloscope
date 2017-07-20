@@ -96,6 +96,37 @@ static mut BUTTON_CHANGED: [bool; BUTTONS] = [ false, false, false, false];
 static mut BUTTON_STATE: [bool; BUTTONS] = [ false, false, false, false];
 static mut BUTTON_DEBOUNCE: [u32; BUTTONS] = [ 0, 0, 0, 0 ];
 
+fn button_get_changed(i: usize) -> bool {
+    unsafe { volatile_load(&BUTTON_CHANGED[i]) }
+}
+fn button_reset_changed(i: usize) {
+    unsafe { volatile_store(&mut BUTTON_CHANGED[i], false); }
+}
+fn button_get_state(i: usize) -> bool {
+    unsafe { volatile_load(&BUTTON_STATE[i]) }
+}
+
+// signal generator frequencies
+struct SiggenFreq {
+    frequency: u32,
+    label: &'static [u8],
+}
+
+const SIGGEN_FREQUENCIES: [SiggenFreq; 9] = [
+    // -FIX- label abbreviations are ugly
+    SiggenFreq { frequency:     1, label: b" 1Hz" },
+    SiggenFreq { frequency:     3, label: b" 3Hz" },
+    SiggenFreq { frequency:    10, label: b"10Hz" },
+    SiggenFreq { frequency:    33, label: b"33Hz" },
+    SiggenFreq { frequency:   100, label: b"100H" },
+    SiggenFreq { frequency:   333, label: b"333H" },
+    SiggenFreq { frequency:  1000, label: b"1kHz" },
+    SiggenFreq { frequency:  3333, label: b"3.3k" },
+    SiggenFreq { frequency: 10000, label: b"10kH" },
+];
+
+// ======== main ========
+
 #[inline(never)]
 fn main() {
     // set system clock to 72MHz
@@ -164,19 +195,35 @@ fn main() {
     // turn on LD4 (northwest, blue) to show we've gotten this far
     led_on(LD4);
 
+    let mut siggen_freq_index = 6; // 1kHz
+    set_siggen_freq_from_index(siggen_freq_index);
     loop {
         led_toggle(LD3); // heartbeat
         delay_ms(100);
-        for i in 0..BUTTONS {
-            unsafe {
-                if volatile_load(&BUTTON_CHANGED[i]) {
-                    volatile_store(&mut BUTTON_CHANGED[i], false);
-                    led_set(BUTTON_LED[i], volatile_load(&BUTTON_STATE[i]));
-                }
+        for i in 0..3 {
+            if button_get_changed(i) {
+                button_reset_changed(i);
+                led_set(BUTTON_LED[i], button_get_state(i));
+            }
+        }
+        // button 3: change signal generator frequency
+        if button_get_changed(3) {
+            button_reset_changed(3);
+            if button_get_state(3) {
+                siggen_freq_index = (siggen_freq_index + 1) % SIGGEN_FREQUENCIES.len();
+                set_siggen_freq_from_index(siggen_freq_index);
             }
         }
     }
 }
+
+fn set_siggen_freq_from_index(i: usize) {
+    let f = &SIGGEN_FREQUENCIES[i];
+    siggen_set_freq(f.frequency);
+    st7735_print(128, 116, f.label, St7735Color::Green, St7735Color::Black);
+}
+
+// ======== exception handlers, including SysTick ========
 
 #[allow(dead_code)]
 #[used]
