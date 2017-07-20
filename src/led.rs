@@ -7,6 +7,7 @@
 use stm32f30x::GPIOE;
 
 #[derive(Clone, Copy)]
+#[allow(unused)]
 pub enum Led {
 //  Northwest  North  NE      East   SE    South  SW      West
 //  blue       red    orange  green  blue  red    orange  green
@@ -24,6 +25,7 @@ pub fn led_init(led: Led) {
     }
 }
 
+#[allow(unused)]
 pub fn led_set(led: Led, state: bool) {
     let pin = led as u8;
     if pin >= 8 && pin <= 15 {
@@ -36,6 +38,7 @@ pub fn led_set(led: Led, state: bool) {
     }
 }
 
+#[allow(unused)]
 pub fn led_on(led: Led) {
     let pin = led as u8;
     if pin >= 8 && pin <= 15 {
@@ -44,6 +47,7 @@ pub fn led_on(led: Led) {
     }
 }
 
+#[allow(unused)]
 pub fn led_off(led: Led) {
     let pin = led as u8;
     if pin >= 8 && pin <= 15 {
@@ -52,6 +56,7 @@ pub fn led_off(led: Led) {
     }
 }
 
+#[allow(unused)]
 pub fn led_toggle(led: Led) {
     let pin = led as u8;
     if pin >= 8 && pin <= 15 {

@@ -24,6 +24,7 @@ extern crate cortex_m_rt;
 extern crate stm32f30x;
 
 mod led;
+mod sysclk;
 
 use core::intrinsics::{volatile_load, volatile_store};
 use cortex_m::{asm, exception};
@@ -32,6 +33,7 @@ use stm32f30x::{GPIOD, RCC};
 
 use led::*;
 use led::Led::*;
+use sysclk::set_sys_clock;
 
 const BUTTONS: usize = 4;
 const BUTTON_LED: [Led; BUTTONS] = [ LD8, LD10, LD9, LD7 ];
@@ -42,6 +44,9 @@ static mut BUTTON_DEBOUNCE: [u32; BUTTONS] = [ 0, 0, 0, 0 ];
 
 #[inline(never)]
 fn main() {
+    // set system clock to 72MHz
+    set_sys_clock();
+
     cortex_m::interrupt::free(|cs| {
         // borrow peripherals
         let rcc = RCC.borrow(cs);
