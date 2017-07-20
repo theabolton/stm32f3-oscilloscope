@@ -1,3 +1,8 @@
+// cortex-m-quickstart build.rs
+// Copyright © 2017 Jorge Aparicio
+// Licensed under the Apache license v2.0, or the MIT license.
+// See https://github.com/japaric/cortex-m-quickstart for details.
+
 use std::env;
 use std::fs::File;
 use std::io::Write;

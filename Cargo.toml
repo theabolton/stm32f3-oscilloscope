@@ -1,5 +1,5 @@
 [package]
-name = "stm32f3-buttons"
+name = "stm32f3-oscilloscope"
 version = "0.1.0"
 authors = ["Sean Bolton <sean@smbolton.com>"]
 

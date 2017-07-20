@@ -1,4 +1,4 @@
-// stm32f3-buttons: buttons to LEDs
+// stm32f3-oscilloscope
 
 // STM32F3 to ST7735 display breakout board pushbuttons:
 // J1-16       GND          black   GND
