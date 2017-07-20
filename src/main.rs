@@ -52,6 +52,7 @@ extern crate stm32f30x;
 
 mod led;
 mod parallax_8x12_font;
+mod siggen;
 mod st7735;
 mod sysclk;
 
@@ -62,6 +63,7 @@ use stm32f30x::{GPIOD, RCC};
 
 use led::*;
 use led::Led::*;
+use siggen::*;
 use st7735::*;
 use sysclk::set_sys_clock;
 
@@ -139,9 +141,6 @@ fn main() {
                                        .pupdr14().bits(0b01)
                                        .pupdr15().bits(0b01));
         }
-
-        // turn on LD4 (northwest, blue) to show we've gotten this far
-        led_on(LD4);
     });
 
     // LCD setup
@@ -158,6 +157,12 @@ fn main() {
     // -FIX- also available;
     // st7735_drawPixel(0, 0, St7735Color::White as u16);
     // st7735_drawFastVLine(10, 0, 10, St7735Color::Blue as u16);
+
+    // signal generator setup
+    siggen_setup();
+
+    // turn on LD4 (northwest, blue) to show we've gotten this far
+    led_on(LD4);
 
     loop {
         led_toggle(LD3); // heartbeat
