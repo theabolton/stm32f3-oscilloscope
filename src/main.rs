@@ -1,4 +1,7 @@
-// stm32f3-oscilloscope
+// stm32f3-oscilloscope - src/main.rs
+
+// A low-bandwidth, digital storage oscilloscope for the STM32F3 Discovery
+// development board.
 
 // STM32F3 to ST7735 display breakout board pushbuttons:
 // J1-16       GND          black   GND
@@ -8,12 +11,15 @@
 // J1-20   Button1 (left)   purple  PD12
 
 // LEDs:
+// LD3 (N, red)     - out-of-reset indication
 // LD4 (NW, blue)   - initialization completed
-// LD3 (N, red)     - heartbeat (main loop)
-// LD8 (SW, orange) - Button1 (left)
-// LD10 (S, red)    - Button2
-// LD9 (SE, blue)   - Button3
-// LD7 (E, green)   - Button4 (right)
+// LD5 (NE, orange) - toggled after each LCD sweep
+
+// x LD               - heartbeat (main loop)
+// x LD8 (SW, orange) - Button1 (left)
+// x LD10 (S, red)    - Button2
+// x LD9 (SE, blue)   - Button3
+// x LD7 (E, green)   - Button4 (right)
 
 #![feature(core_intrinsics)]
 #![feature(used)]
@@ -24,6 +30,8 @@ extern crate cortex_m_rt;
 extern crate stm32f30x;
 
 mod led;
+mod parallax_8x12_font;
+mod st7735;
 mod sysclk;
 
 use core::intrinsics::{volatile_load, volatile_store};
@@ -33,8 +41,31 @@ use stm32f30x::{GPIOD, RCC};
 
 use led::*;
 use led::Led::*;
+use st7735::*;
 use sysclk::set_sys_clock;
 
+// the C functions we call from Rust
+extern {
+    fn st7735_initR(lcd_type: u8);
+    //fn st7735_drawFastVLine(x: i16, y: i16, h: i16, color: u16);
+    //fn st7735_drawPixel(x: i16, y: i16, color: u16);
+    fn st7735_fillScreen(color: u16);
+    fn st7735_pushColor(color: u16);
+    fn st7735_setAddrWindow(x0: u8, y0: u8, x1: u8, y1: u8);
+    fn st7735_setRotation(rotation: u8);
+    fn st7735_get_height() -> u8;
+    fn st7735_get_width() -> u8;
+}
+
+// the Rust functions in submodules that we call from C
+pub use st7735::{
+    st7735_send_cmd,
+    st7735_send_data,
+    lcd_cs0, lcd_cs1,
+    lcd_rst0, lcd_rst1,
+};
+
+// constants and state for the LCD breakout board pushbuttons
 const BUTTONS: usize = 4;
 const BUTTON_LED: [Led; BUTTONS] = [ LD8, LD10, LD9, LD7 ];
 const BUTTON_PIN: [usize; BUTTONS] = [ 12, 13, 14, 15 ];
@@ -75,7 +106,8 @@ fn main() {
         syst.enable_interrupt();
         syst.enable_counter();
 
-        // configure GPIOD button input pins
+        // set up LCD breakout board pushbuttons
+        // - GPIOD powered on above
         gpiod.moder.modify(|_, w| w.moder12().input()
                                    .moder13().input()
                                    .moder14().input()
@@ -90,6 +122,21 @@ fn main() {
         // turn on LD4 (northwest, blue) to show we've gotten this far
         led_on(LD4);
     });
+
+    // LCD setup
+    st7735_setup();
+    delay_ms(50);
+    unsafe {
+        st7735_initR(St7735Type::RedTab as u8);
+        st7735_setRotation(3); // landscape
+        st7735_fillScreen(St7735Color::Black as u16);
+    }
+    st7735_print(0, 0, b"stm-scope", St7735Color::Green, St7735Color::Black);
+    //st7735_print(10 * 8, 0, env!("CARGO_PKG_VERSION").as_ref(),
+    //             St7735Color::Green, St7735Color::Black);
+    // -FIX- also available;
+    // st7735_drawPixel(0, 0, St7735Color::White as u16);
+    // st7735_drawFastVLine(10, 0, 10, St7735Color::Blue as u16);
 
     loop {
         led_toggle(LD3); // heartbeat
@@ -149,7 +196,8 @@ extern "C" fn systick_handler(_: exception::SysTick) {
     }
 }
 
-fn delay_ms(ms: u32) {
+#[no_mangle]
+pub extern "C" fn delay_ms(ms: u32) {
     unsafe {
         volatile_store(&mut TIMING_DELAY, ms);
         while volatile_load(&TIMING_DELAY) != 0 {}
