@@ -8,8 +8,8 @@ STM32F3 Oscilloscope
    :target: https://en.wikipedia.org/wiki/MIT_License
    :alt: MIT Licensed
 
-OMG, oscilloscopes are the bomb! No tool is better at letting us see, in real
-time, the "magic" working inside electronics.
+OMG, oscilloscopes are the absolute coolest ever! No tool is better at letting
+us see, in real time, the "magic" working inside electronics.
 
 So, naturally, I want to build them. This is a project using an STM32F303
 Discovery development board, programmed in Rust, to make a low-bandwidth
@@ -39,6 +39,7 @@ Documentation
 =============
 
 * `Connections <docs/connections.html>`_
+* `Peripheral Usage <docs/peripherals.html>`_
 
 License
 =======
