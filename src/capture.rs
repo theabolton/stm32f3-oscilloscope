@@ -55,9 +55,9 @@ pub fn capture_setup() {
         let adc1 = ADC1.borrow(cs);
         adc1.cr.modify(|_, w| unsafe { w.advregen().bits(0b00) }); // set to intermediate state first
         adc1.cr.modify(|_, w| unsafe { w.advregen().bits(0b01) }); // then enable
-        // - leave critical section and wait for at least 10µs
+        // - leave critical section and wait for at least 10µs (the hardware requirement)
     });
-        delay_ms(2); // delay at least 1ms
+        delay_ms(2); // delay at least 1ms (convenient, but longer than required)
         // - enter critical section again
     cortex_m::interrupt::free(|cs| {
         // - select calibration mode
@@ -97,8 +97,5 @@ pub fn capture_setup() {
         adc1.cr.modify(|_, w| unsafe { w.aden().bits(1) });
         // wait for ADRDY
         while adc1.isr.read().adrdy().bits() == 0 {}
-
-        // !FIX! for now, start continuous conversion, which we'll just poll
-        adc1.cr.modify(|_, w| unsafe { w.adstart().bits(1) });
     });
 }

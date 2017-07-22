@@ -24,23 +24,7 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// STM32F3 to ST7735 display breakout board pushbuttons:
-// J1-16       GND          black   GND
-// J1-17   Button4 (right)  brown   PD15
-// J1-18   Button3          white   PD14
-// J1-19   Button2          grey    PD13
-// J1-20   Button1 (left)   purple  PD12
-
-// LEDs:
-// LD3 (N, red)     - out-of-reset indication
-// LD4 (NW, blue)   - initialization completed
-// LD5 (NE, orange) - toggled after each LCD sweep
-
-// x LD               - heartbeat (main loop)
-// x LD8 (SW, orange) - Button1 (left)
-// x LD10 (S, red)    - Button2
-// x LD9 (SE, blue)   - Button3
-// x LD7 (E, green)   - Button4 (right)
+// For a summary of the peripherals used, see doc/peripherals.rst
 
 #![feature(core_intrinsics)]
 #![feature(used)]
@@ -61,6 +45,7 @@ use core::intrinsics::{volatile_load, volatile_store};
 use cortex_m::{asm, exception};
 use cortex_m::peripheral::{SCB, SYST};
 use stm32f30x::{GPIOD, RCC};
+use stm32f30x::ADC1; // -FIX- temporary
 
 use capture::*;
 use led::*;
@@ -97,7 +82,6 @@ pub use st7735::{
 
 // constants and state for the LCD breakout board pushbuttons
 const BUTTONS: usize = 4;
-const BUTTON_LED: [Led; BUTTONS] = [ LD8, LD10, LD9, LD7 ];
 const BUTTON_PIN: [usize; BUTTONS] = [ 12, 13, 14, 15 ];
 static mut BUTTON_CHANGED: [bool; BUTTONS] = [ false, false, false, false];
 static mut BUTTON_STATE: [bool; BUTTONS] = [ false, false, false, false];
@@ -123,15 +107,30 @@ struct SiggenFreq {
 
 const SIGGEN_FREQUENCIES: [SiggenFreq; 9] = [
     // -FIX- label abbreviations are ugly
-    SiggenFreq { frequency:     1, label: b" 1Hz" },
-    SiggenFreq { frequency:     3, label: b" 3Hz" },
+    SiggenFreq { frequency:     1, label: b"1Hz" },
+    SiggenFreq { frequency:     3, label: b"3Hz" },
     SiggenFreq { frequency:    10, label: b"10Hz" },
     SiggenFreq { frequency:    33, label: b"33Hz" },
-    SiggenFreq { frequency:   100, label: b"100H" },
-    SiggenFreq { frequency:   333, label: b"333H" },
+    SiggenFreq { frequency:   100, label: b"100Hz" },
+    SiggenFreq { frequency:   333, label: b"333Hz" },
     SiggenFreq { frequency:  1000, label: b"1kHz" },
-    SiggenFreq { frequency:  3333, label: b"3.3k" },
-    SiggenFreq { frequency: 10000, label: b"10kH" },
+    SiggenFreq { frequency:  3333, label: b"3.3kHz" },
+    SiggenFreq { frequency: 10000, label: b"10kHz" },
+];
+
+// timebase intervals
+struct TimebaseInterval {
+    delay: u32, // -FIX- for now, milliseconds between samples
+    label: &'static [u8],
+}
+
+const TIMEBASE_INTERVALS: [TimebaseInterval; 6] = [
+    TimebaseInterval { delay:  0, label: b"freerun" },
+    TimebaseInterval { delay:  1, label: b"32ms" },
+    TimebaseInterval { delay:  3, label: b".1s" },
+    TimebaseInterval { delay:  6, label: b".2s" },
+    TimebaseInterval { delay: 15, label: b".5s" },
+    TimebaseInterval { delay: 31, label: b"1s" },
 ];
 
 // ======== main ========
@@ -153,12 +152,8 @@ fn main() {
                                   .iopeen().enabled());
 
         // initialize LEDs
-        led_init(LD3);
         led_init(LD4);
-        led_init(LD7);
-        led_init(LD8);
-        led_init(LD9);
-        led_init(LD10);
+        led_init(LD5);
 
         // enable Cortex-M SysTick counter
         syst.set_reload(8000); // set to update every 8000 clocks, or every 1ms
@@ -205,20 +200,90 @@ fn main() {
     // turn on LD4 (northwest, blue) to show we've gotten this far
     led_on(LD4);
 
+    // paint graticule
+    let mut x = 32;
+    while x <= 128 {
+        let mut y = 32;
+        while y <= 96 {
+            st7735_drawPixel(x, 127 - y, St7735Color::Red as u16);
+            y += 32;
+        }
+        x += 32;
+    }
+
     // ======== main loop ========
 
     let mut siggen_freq_index = 6; // 1kHz
     set_siggen_freq_from_index(siggen_freq_index);
+    let mut timebase = 1;
+    let mut capture = [255u8; 160];
+    let mut xi = 0;
+
+    // -FIX- For now, this is just scaffolding code to get things running. There is no dedicated
+    // timer yet to drive the sampling, nor DMA yet to handle sampled values, so this loop just
+    // manually samples the input, then busy-waits on the SysTick timer (using rather imprecise
+    // intervals).
+    // start continuous conversion
+    let adc1 = ADC1.get();
+    unsafe { (*adc1).cr.modify(|_, w| w.adstart().bits(1)); }
     loop {
-        led_toggle(LD3); // heartbeat
-        delay_ms(100);
-        for i in 0..3 {
-            if button_get_changed(i) {
-                button_reset_changed(i);
-                led_set(BUTTON_LED[i], button_get_state(i));
+        // poll ADC1
+        // - wait for EOC flag
+        while unsafe { (*adc1).isr.read().eoc().bits() } == 0 {}
+        // - get data
+        let raw_conversion = unsafe { (*adc1).dr.read().regular_data().bits() };
+
+        // erase old plot
+        let x = xi as i16;
+        if capture[xi] < 255 {
+            if x % 32 == 0 && (127 - capture[xi]) % 32 == 0 {
+                st7735_drawPixel(x, 127 - capture[xi] as i16, St7735Color::Green as u16);
+            } else {
+                st7735_drawPixel(x, 127 - capture[xi] as i16, St7735Color::Black as u16);
             }
         }
-        // button 3: change signal generator frequency
+        // plot new value
+        let microvolts_per_lsb = 806u32; // 3.3v / 2^12 bits * 10^6
+        let microvolts = raw_conversion as u32 * microvolts_per_lsb;
+        // Note that the 3.3v * 10^6 just cancels out in these calculations; we could just right
+        // shift by 5 bits. But later we'll want the vertical gain represented (roughly) in terms
+        // of voltage.
+        let microvolts_per_y = 25_781u32; // 3.3v * 10^6 / 128 pixels
+        let y = (microvolts / microvolts_per_y) as i16;
+        if y < 0 { // (can't yet happen)
+            st7735_drawPixel(x, 127, St7735Color::Red as u16);
+            capture[xi] = 0;
+        } else if y > 127 {
+            st7735_drawPixel(x, 0, St7735Color::Red as u16);
+            capture[xi] = 127;
+        } else {
+            st7735_drawPixel(x, 127 - y, St7735Color::White as u16);
+            capture[xi] = y as u8;
+        }
+        // end of sweep?
+        xi += 1;
+        if xi >= 160 {
+            xi = 0;
+            led_toggle(LD5);
+        }
+        // delay before next conversion
+        let delay = TIMEBASE_INTERVALS[timebase].delay;
+        if delay > 0 {
+            delay_ms(delay);
+        }
+
+        // button 1 (left): change timebase
+        if button_get_changed(0) {
+            button_reset_changed(0);
+            if button_get_state(0) {
+                timebase = (timebase + 1) % TIMEBASE_INTERVALS.len();
+                let label = &TIMEBASE_INTERVALS[timebase].label;
+                st7735_print(0, 116, label, St7735Color::Green, St7735Color::Black);
+                st7735_print(8 * label.len() as u8, 116, b"/div",
+                             St7735Color::Green, St7735Color::Black);
+            }
+        }
+        // button 4 (right): change signal generator frequency
         if button_get_changed(3) {
             button_reset_changed(3);
             if button_get_state(3) {
@@ -232,7 +297,8 @@ fn main() {
 fn set_siggen_freq_from_index(i: usize) {
     let f = &SIGGEN_FREQUENCIES[i];
     siggen_set_freq(f.frequency);
-    st7735_print(128, 116, f.label, St7735Color::Green, St7735Color::Black);
+    st7735_print(0, 116, b"siggen freq:", St7735Color::Green, St7735Color::Black);
+    st7735_print(104, 116, f.label, St7735Color::Green, St7735Color::Black);
 }
 
 // ======== exception handlers, including SysTick ========
