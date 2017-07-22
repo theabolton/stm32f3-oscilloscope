@@ -217,7 +217,7 @@ static void commonInit(const uint8_t *cmdList) {
 
 
 // Initialization for ST7735R screens (green or red tabs)
-void st7735_initR(uint8_t options) {
+void _st7735_initR(uint8_t options) {
     delay_ms(50);
     commonInit(Rcmd1);
     if(options == INITR_GREENTAB) {
@@ -238,7 +238,7 @@ void st7735_initR(uint8_t options) {
 }
 
 
-void st7735_setAddrWindow(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
+void _st7735_setAddrWindow(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
     st7735_send_cmd(ST7735_CASET);          // Column addr set
     st7735_send_data(0x00);
     st7735_send_data(x0+colstart);     // XSTART
@@ -254,54 +254,54 @@ void st7735_setAddrWindow(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
     st7735_send_cmd(ST7735_RAMWR); // write to RAM
 }
 
-void st7735_pushColor(uint16_t color) {
+void _st7735_pushColor(uint16_t color) {
     st7735_send_data(color >> 8);
     st7735_send_data(color & 0xff);
 }
 
 // draw color pixel on screen
-void st7735_drawPixel(int16_t x, int16_t y, uint16_t color) {
+void _st7735_drawPixel(int16_t x, int16_t y, uint16_t color) {
 
     if((x < 0) ||(x >= _width) || (y < 0) || (y >= _height)) return;
 
-    st7735_setAddrWindow(x,y,x+1,y+1);
-    st7735_pushColor(color);
+    _st7735_setAddrWindow(x,y,x+1,y+1);
+    _st7735_pushColor(color);
 }
 
-void st7735_drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) {
+void _st7735_drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) {
     // Rudimentary clipping
     if((x >= _width) || (y >= _height)) return;
     if((y+h-1) >= _height) h = _height-y;
-    st7735_setAddrWindow(x, y, x, y+h-1);
+    _st7735_setAddrWindow(x, y, x, y+h-1);
     while (h--) {
-        st7735_pushColor(color);
+        _st7735_pushColor(color);
     }
 }
 
-// void st7735_drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) {
-//     // Rudimentary clipping
-//     if((x >= _width) || (y >= _height)) return;
-//     if((x+w-1) >= _width)  w = _width-x;
-//     st7735_setAddrWindow(x, y, x+w-1, y);
-//     while (w--) {
-//         st7735_pushColor(color);
-//     }
-// }
+void _st7735_drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) {
+    // Rudimentary clipping
+    if((x >= _width) || (y >= _height)) return;
+    if((x+w-1) >= _width)  w = _width-x;
+    _st7735_setAddrWindow(x, y, x+w-1, y);
+    while (w--) {
+        _st7735_pushColor(color);
+    }
+}
 
-void st7735_fillScreen(uint16_t color) {
-    st7735_fillRect(0, 0, _width, _height, color);
+void _st7735_fillScreen(uint16_t color) {
+    _st7735_fillRect(0, 0, _width, _height, color);
 }
 
 // fill a rectangle
-void st7735_fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+void _st7735_fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
     // rudimentary clipping (drawChar w/big text requires this)
     if((x >= _width) || (y >= _height)) return;
     if((x + w - 1) >= _width)  w = _width  - x;
     if((y + h - 1) >= _height) h = _height - y;
-    st7735_setAddrWindow(x, y, x+w-1, y+h-1);
+    _st7735_setAddrWindow(x, y, x+w-1, y+h-1);
     for(y=h; y>0; y--) {
         for(x=w; x>0; x--) {
-            st7735_pushColor(color);
+            _st7735_pushColor(color);
         }
     }
 }
@@ -319,7 +319,7 @@ void st7735_fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 #define MADCTL_BGR 0x08
 #define MADCTL_MH  0x04
 
-void st7735_setRotation(uint8_t m) {
+void _st7735_setRotation(uint8_t m) {
         uint8_t rotation = m % 4; // can't be higher than 3
 
         st7735_send_cmd(ST7735_MADCTL);
@@ -349,10 +349,10 @@ void st7735_setRotation(uint8_t m) {
         }
 }
 
-uint8_t st7735_get_height(void) {
+uint8_t _st7735_get_height(void) {
     return _height;
 }
 
-uint8_t st7735_get_width(void) {
+uint8_t _st7735_get_width(void) {
     return _width;
 }

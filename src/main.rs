@@ -67,17 +67,20 @@ use siggen::*;
 use st7735::*;
 use sysclk::set_sys_clock;
 
+// ======== required declarations for Rust and C linkage ========
+
 // the C functions we call from Rust
-extern {
-    fn st7735_initR(lcd_type: u8);
-    //fn st7735_drawFastVLine(x: i16, y: i16, h: i16, color: u16);
-    //fn st7735_drawPixel(x: i16, y: i16, color: u16);
-    fn st7735_fillScreen(color: u16);
-    fn st7735_pushColor(color: u16);
-    fn st7735_setAddrWindow(x0: u8, y0: u8, x1: u8, y1: u8);
-    fn st7735_setRotation(rotation: u8);
-    fn st7735_get_height() -> u8;
-    fn st7735_get_width() -> u8;
+extern "C" {
+    fn _st7735_initR(lcd_type: u8);
+    fn _st7735_drawFastHLine(x: i16, y: i16, h: i16, color: u16);
+    fn _st7735_drawFastVLine(x: i16, y: i16, h: i16, color: u16);
+    fn _st7735_drawPixel(x: i16, y: i16, color: u16);
+    fn _st7735_fillScreen(color: u16);
+    fn _st7735_pushColor(color: u16);
+    fn _st7735_setAddrWindow(x0: u8, y0: u8, x1: u8, y1: u8);
+    fn _st7735_setRotation(rotation: u8);
+    fn _st7735_get_height() -> u8;
+    fn _st7735_get_width() -> u8;
 }
 
 // the Rust functions in submodules that we call from C
@@ -87,6 +90,8 @@ pub use st7735::{
     lcd_cs0, lcd_cs1,
     lcd_rst0, lcd_rst1,
 };
+
+// ======== global (cough) state ========
 
 // constants and state for the LCD breakout board pushbuttons
 const BUTTONS: usize = 4;
@@ -105,6 +110,8 @@ fn button_reset_changed(i: usize) {
 fn button_get_state(i: usize) -> bool {
     unsafe { volatile_load(&BUTTON_STATE[i]) }
 }
+
+// ======== constants ========
 
 // signal generator frequencies
 struct SiggenFreq {
@@ -177,11 +184,9 @@ fn main() {
     // LCD setup
     st7735_setup();
     delay_ms(50);
-    unsafe {
-        st7735_initR(St7735Type::RedTab as u8);
-        st7735_setRotation(3); // landscape
-        st7735_fillScreen(St7735Color::Black as u16);
-    }
+    st7735_initR(St7735Type::RedTab as u8);
+    st7735_setRotation(3); // landscape
+    st7735_fillScreen(St7735Color::Black as u16);
     st7735_print(0, 0, b"stm-scope", St7735Color::Green, St7735Color::Black);
     //st7735_print(10 * 8, 0, env!("CARGO_PKG_VERSION").as_ref(),
     //             St7735Color::Green, St7735Color::Black);

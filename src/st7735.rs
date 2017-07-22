@@ -21,6 +21,8 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#![allow(non_snake_case)]
+
 use core::ptr;
 
 use cortex_m;
@@ -29,7 +31,18 @@ use stm32f30x::{GPIOB, RCC};
 use stm32f30x::SPI2;
 
 use parallax_8x12_font;
-use {st7735_get_height, st7735_get_width, st7735_pushColor, st7735_setAddrWindow};
+use { // C functions
+    _st7735_drawFastHLine,
+    _st7735_drawFastVLine,
+    _st7735_drawPixel,
+    _st7735_fillScreen,
+    _st7735_get_height,
+    _st7735_get_width,
+    _st7735_initR,
+    _st7735_pushColor,
+    _st7735_setAddrWindow,
+    _st7735_setRotation
+};
 
 // ======== ST7735 "type" and color enums ========
 
@@ -146,7 +159,6 @@ fn lcd_dc() -> bool {
 #[cfg(not(feature = "software-spi"))]
 #[no_mangle]
 #[used]
-#[allow(non_snake_case)]
 pub extern "C" fn st7735_send_cmd(cmd: u8) {
     if lcd_dc() {
         // drain the transmit FIFO before switching A0/DC
@@ -160,7 +172,6 @@ pub extern "C" fn st7735_send_cmd(cmd: u8) {
 #[cfg(not(feature = "software-spi"))]
 #[no_mangle]
 #[used]
-#[allow(non_snake_case)]
 pub extern "C" fn st7735_send_data(data: u8) {
     if !lcd_dc() {
         // drain the transmit FIFO before switching A0/DC
@@ -237,7 +248,6 @@ fn lcd_sck0() {
 #[cfg(feature = "software-spi")]
 #[no_mangle]
 #[used]
-#[allow(non_snake_case)]
 pub extern "C" fn st7735_send_cmd(cmd: u8) {
     lcd_dc0();
     st7735_send_byte(cmd);
@@ -247,7 +257,6 @@ pub extern "C" fn st7735_send_cmd(cmd: u8) {
 #[cfg(feature = "software-spi")]
 #[no_mangle]
 #[used]
-#[allow(non_snake_case)]
 pub extern "C" fn st7735_send_data(data: u8) {
     lcd_dc1();
     st7735_send_byte(data);
@@ -287,20 +296,50 @@ pub extern "C" fn lcd_rst0() {
     unsafe { (*GPIOB.get()).brr.write(|w| w.br14().bits(1)); } // reset PB14: RST
 }
 
+// ======== wrappers for (unsafe) C functions ========
+
+pub fn st7735_initR(lcd_type: u8) { unsafe { _st7735_initR(lcd_type) } }
+
+#[allow(unused)]
+pub fn st7735_drawFastHLine(x: i16, y: i16, w: i16, color: u16) {
+    unsafe { _st7735_drawFastHLine(x, y, w, color) }
+}
+
+#[allow(unused)]
+pub fn st7735_drawFastVLine(x: i16, y: i16, h: i16, color: u16) {
+    unsafe { _st7735_drawFastVLine(x, y, h, color) }
+}
+
+pub fn st7735_drawPixel(x: i16, y: i16, color: u16) { unsafe { _st7735_drawPixel(x, y, color) } }
+
+pub fn st7735_fillScreen(color: u16) { unsafe { _st7735_fillScreen(color) } }
+
+pub fn st7735_pushColor(color: u16) { unsafe { _st7735_pushColor(color) } }
+
+pub fn st7735_setAddrWindow(x0: u8, y0: u8, x1: u8, y1: u8) {
+    unsafe { _st7735_setAddrWindow(x0, y0, x1, y1) }
+}
+
+pub fn st7735_setRotation(rotation: u8) { unsafe { _st7735_setRotation(rotation) } }
+
+pub fn st7735_get_height() -> u8 { unsafe { _st7735_get_height() } }
+
+pub fn st7735_get_width() -> u8 { unsafe { _st7735_get_width() } }
+
 // ======== text printing ========
 
 fn st7735_putc_unchecked(x: u8, y:u8, c: u8, fg: St7735Color, bg: St7735Color) {
     if c >= 128 {
         return;
     }
-    unsafe { st7735_setAddrWindow(x, y, x + 7, y + 11) };
+    st7735_setAddrWindow(x, y, x + 7, y + 11);
     for yrow in 0..12 {
         let mut bits = parallax_8x12_font::FONT_8X12[(c as usize) * 12 + yrow];
         for _ in 0..8 {
             if bits & 0b1 == 0b1 {
-                unsafe { st7735_pushColor(fg as u16) };
+                st7735_pushColor(fg as u16);
             } else {
-                unsafe { st7735_pushColor(bg as u16) };
+                st7735_pushColor(bg as u16);
             }
             bits >>= 1;
         }
@@ -309,8 +348,8 @@ fn st7735_putc_unchecked(x: u8, y:u8, c: u8, fg: St7735Color, bg: St7735Color) {
 
 #[allow(unused)]
 pub fn st7735_putc(x: u8, y:u8, c: u8, fg: St7735Color, bg: St7735Color) {
-    let height = unsafe { st7735_get_height() };
-    let width = unsafe { st7735_get_width() };
+    let height = st7735_get_height();
+    let width = st7735_get_width();
     if x > width - 8 || y > height - 12 {
         return;
     }
