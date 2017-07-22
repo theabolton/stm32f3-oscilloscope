@@ -50,6 +50,7 @@ extern crate cortex_m;
 extern crate cortex_m_rt;
 extern crate stm32f30x;
 
+mod capture;
 mod led;
 mod parallax_8x12_font;
 mod siggen;
@@ -61,6 +62,7 @@ use cortex_m::{asm, exception};
 use cortex_m::peripheral::{SCB, SYST};
 use stm32f30x::{GPIOD, RCC};
 
+use capture::*;
 use led::*;
 use led::Led::*;
 use siggen::*;
@@ -194,11 +196,16 @@ fn main() {
     // st7735_drawPixel(0, 0, St7735Color::White as u16);
     // st7735_drawFastVLine(10, 0, 10, St7735Color::Blue as u16);
 
-    // signal generator setup
+    // signal generator (DAC, DMA, TIM, GPIO output) setup
     siggen_setup();
+
+    // capture (ADC, DMA, TIM, GPIO input) setup
+    capture_setup();
 
     // turn on LD4 (northwest, blue) to show we've gotten this far
     led_on(LD4);
+
+    // ======== main loop ========
 
     let mut siggen_freq_index = 6; // 1kHz
     set_siggen_freq_from_index(siggen_freq_index);

@@ -67,7 +67,7 @@ pub fn siggen_setup() {
         rcc.apb1enr.modify(|_, w| w.dacen().enabled()
                                    .tim2en().enabled());
 
-        // configure PA4 and PA5 and analog inputs with no pull, so they don't
+        // configure PA4 and PA5 as analog inputs with no pull, so they don't
         // fight the DAC output
         gpioa.moder.modify(|_, w|
             w.moder4().analog()
