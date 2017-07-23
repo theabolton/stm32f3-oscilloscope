@@ -254,7 +254,7 @@ void _st7735_setAddrWindow(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
     st7735_send_cmd(ST7735_RAMWR); // write to RAM
 }
 
-void _st7735_pushColor(uint16_t color) {
+static void _st7735_pushColor(uint16_t color) {
     st7735_send_data(color >> 8);
     st7735_send_data(color & 0xff);
 }
@@ -289,21 +289,7 @@ void _st7735_drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) {
 }
 
 void _st7735_fillScreen(uint16_t color) {
-    _st7735_fillRect(0, 0, _width, _height, color);
-}
-
-// fill a rectangle
-void _st7735_fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
-    // rudimentary clipping (drawChar w/big text requires this)
-    if((x >= _width) || (y >= _height)) return;
-    if((x + w - 1) >= _width)  w = _width  - x;
-    if((y + h - 1) >= _height) h = _height - y;
-    _st7735_setAddrWindow(x, y, x+w-1, y+h-1);
-    for(y=h; y>0; y--) {
-        for(x=w; x>0; x--) {
-            _st7735_pushColor(color);
-        }
-    }
+    st7735_fill_rect(0, 0, _width, _height, color);
 }
 
 // // Pass 8-bit (each) R,G,B, get back 16-bit packed color

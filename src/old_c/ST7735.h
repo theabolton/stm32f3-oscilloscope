@@ -90,13 +90,11 @@ as well as Adafruit raw 1.8" TFT display
 extern void _st7735_initR(uint8_t options);
 
 extern void _st7735_setAddrWindow(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
-extern void _st7735_pushColor(uint16_t color);
 
 // extern uint16_t st7735_Color565(uint8_t r, uint8_t g, uint8_t b);
 extern void _st7735_drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
 extern void _st7735_drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
 extern void _st7735_drawPixel(int16_t x, int16_t y, uint16_t color);
-extern void _st7735_fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
 extern void _st7735_fillScreen(uint16_t color);
 extern void _st7735_setRotation(uint8_t m);
 

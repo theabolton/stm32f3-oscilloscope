@@ -39,7 +39,6 @@ use { // C functions
     _st7735_get_height,
     _st7735_get_width,
     _st7735_initR,
-    _st7735_pushColor,
     _st7735_setAddrWindow,
     _st7735_setRotation
 };
@@ -54,7 +53,7 @@ pub enum St7735Type {
 }
 
 #[allow(unused)]
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 pub enum St7735Color {
     Black = 0,
     Blue = 0x001f,
@@ -314,8 +313,6 @@ pub fn st7735_drawPixel(x: i16, y: i16, color: u16) { unsafe { _st7735_drawPixel
 
 pub fn st7735_fillScreen(color: u16) { unsafe { _st7735_fillScreen(color) } }
 
-pub fn st7735_pushColor(color: u16) { unsafe { _st7735_pushColor(color) } }
-
 pub fn st7735_setAddrWindow(x0: u8, y0: u8, x1: u8, y1: u8) {
     unsafe { _st7735_setAddrWindow(x0, y0, x1, y1) }
 }
@@ -326,9 +323,45 @@ pub fn st7735_get_height() -> u8 { unsafe { _st7735_get_height() } }
 
 pub fn st7735_get_width() -> u8 { unsafe { _st7735_get_width() } }
 
+// ======== drawing routines ========
+
+pub fn st7735_send_color(color: u16) {
+    st7735_send_data((color >> 8) as u8);
+    st7735_send_data((color & 0xff) as u8);
+}
+
+#[no_mangle]
+#[used]
+pub extern "C" fn st7735_fill_rect(x: i16, y: i16, w0: i16, h0: i16, color: u16) {
+    let width = st7735_get_width() as i16;
+    let height = st7735_get_height() as i16;
+    let mut w = w0;
+    let mut x_end = x + w - 1;
+    if x_end >= width {
+        if x >= width {
+            return;
+        }
+        x_end = width - 1;
+        w = width - x;
+    }
+    let mut h = h0;
+    let mut y_end = y + h - 1;
+    if y_end >= height {
+        if y >= height {
+            return;
+        }
+        y_end = height - 1;
+        h = height - y;
+    }
+    st7735_setAddrWindow(x as u8, y as u8, x_end as u8, y_end as u8);
+    for _ in 0..(w * h) {
+        st7735_send_color(color)
+    }
+}
+
 // ======== text printing ========
 
-fn st7735_putc_unchecked(x: u8, y:u8, c: u8, fg: St7735Color, bg: St7735Color) {
+fn st7735_putc_unchecked(x: u8, y: u8, c: u8, fg: St7735Color, bg: St7735Color) {
     if c >= 128 {
         return;
     }
@@ -337,9 +370,9 @@ fn st7735_putc_unchecked(x: u8, y:u8, c: u8, fg: St7735Color, bg: St7735Color) {
         let mut bits = parallax_8x12_font::FONT_8X12[(c as usize) * 12 + yrow];
         for _ in 0..8 {
             if bits & 0b1 == 0b1 {
-                st7735_pushColor(fg as u16);
+                st7735_send_color(fg as u16);
             } else {
-                st7735_pushColor(bg as u16);
+                st7735_send_color(bg as u16);
             }
             bits >>= 1;
         }
@@ -347,7 +380,7 @@ fn st7735_putc_unchecked(x: u8, y:u8, c: u8, fg: St7735Color, bg: St7735Color) {
 }
 
 #[allow(unused)]
-pub fn st7735_putc(x: u8, y:u8, c: u8, fg: St7735Color, bg: St7735Color) {
+pub fn st7735_putc(x: u8, y: u8, c: u8, fg: St7735Color, bg: St7735Color) {
     let height = st7735_get_height();
     let width = st7735_get_width();
     if x > width - 8 || y > height - 12 {

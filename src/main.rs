@@ -63,7 +63,6 @@ extern "C" {
     fn _st7735_drawFastVLine(x: i16, y: i16, h: i16, color: u16);
     fn _st7735_drawPixel(x: i16, y: i16, color: u16);
     fn _st7735_fillScreen(color: u16);
-    fn _st7735_pushColor(color: u16);
     fn _st7735_setAddrWindow(x0: u8, y0: u8, x1: u8, y1: u8);
     fn _st7735_setRotation(rotation: u8);
     fn _st7735_get_height() -> u8;
@@ -76,6 +75,7 @@ pub use st7735::{
     st7735_send_data,
     lcd_cs0, lcd_cs1,
     lcd_rst0, lcd_rst1,
+    st7735_fill_rect,
 };
 
 // ======== global (cough) state ========
