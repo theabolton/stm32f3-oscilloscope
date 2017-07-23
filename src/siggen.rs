@@ -89,13 +89,13 @@ pub fn siggen_setup() {
             // is bigger than TIM2_ARR, so nothing happens until the timer wraps).
              .arpe().bits(1)   // ARR register is buffered
         });
-        tim2.cr2.modify(|_, w| unsafe { w.mms().bits(0b010) }); // trigger output: generate update event
+        tim2.cr2.modify(|_, w| unsafe { w.mms().bits(0b010) }); // trigger output: update event
         tim2.arr.write(|w| unsafe { w.bits(249) }); // 1kHz, can be changed by siggen_set_freq()
         tim2.psc.write(|w| unsafe { w.psc().bits(0) }); // prescaler of 1
         tim2.egr.write(|w| unsafe { w.ug().bits(1) }); // immediately update registers
 
         // configure DAC
-        // - if we're not do this just after reset:
+        // - if we're not doing this just after reset:
         //     rcc.apb1rstr.modify(|_, w| unsafe { w.dacrst().bits(1) }); // set DAC reset bit
         //     rcc.apb1rstr.modify(|_, w| unsafe { w.dacrst().bits(0) }); // clear reset bit
         dac.cr.modify(|_, w| unsafe {
@@ -127,15 +127,15 @@ pub fn siggen_setup() {
         });
         dma2.cndtr3.write(|w| unsafe { w.ndt().bits(144) });  // buffer size
         let dac_dhr12r2_address: u32 = &dac.dhr12r2 as *const _ as u32;
-        assert!(dac_dhr12r2_address == 0x40007414);
+        debug_assert_eq!(dac_dhr12r2_address, 0x40007414);
         dma2.cpar3.write(|w| unsafe {
             w.bits(dac_dhr12r2_address) // peripheral base address
         });
         dma2.cmar3.write(|w| unsafe {
             w.bits(&SINE_12BIT as *const _ as u32) // memory base address
         });
-        
-        // configure DMA2 channel 4 for DAC channel 1        
+
+        // configure DMA2 channel 4 for DAC channel 1
         // - assuming reset state
         dma2.ccr4.modify(|_, w| unsafe {
             w.mem2mem().bits(0)  // memory-to-memory mode disabled
@@ -149,7 +149,7 @@ pub fn siggen_setup() {
         });
         dma2.cndtr4.write(|w| unsafe { w.ndt().bits(144) });  // buffer size
         let dac_dhr8r1_address: u32 = &dac.dhr8r1 as *const _ as u32;
-        assert!(dac_dhr8r1_address == 0x40007410);
+        debug_assert_eq!(dac_dhr8r1_address, 0x40007410);
         dma2.cpar4.write(|w| unsafe {
             w.bits(dac_dhr8r1_address) // peripheral base address
         });

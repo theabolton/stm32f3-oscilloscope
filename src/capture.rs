@@ -109,7 +109,7 @@ pub fn capture_setup() {
             w.ckd().bits(0b00) // no sampling filter clock division
              .arpe().bits(1)   // ARR register is buffered
         });
-        tim15.cr2.modify(|_, w| unsafe { w.mms().bits(0b010) }); // TRGO: generate update event
+        tim15.cr2.modify(|_, w| unsafe { w.mms().bits(0b010) }); // trigger output: update event
         tim15.arr.write(|w| unsafe { w.bits(999) }); // 1kHz
         tim15.psc.write(|w| unsafe { w.psc().bits(71) }); // prescaler of 72
         tim15.egr.write(|w| unsafe { w.ug().bits(1) }); // immediately update registers
