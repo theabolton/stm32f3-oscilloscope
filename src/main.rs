@@ -194,12 +194,9 @@ fn main() {
     st7735_initR(St7735Type::RedTab as u8);
     st7735_setRotation(3); // landscape
     st7735_fillScreen(St7735Color::Black as u16);
-    st7735_print(0, 0, b"stm-scope", St7735Color::Green, St7735Color::Black);
-    //st7735_print(10 * 8, 0, env!("CARGO_PKG_VERSION").as_ref(),
-    //             St7735Color::Green, St7735Color::Black);
-    // -FIX- also available;
-    // st7735_drawPixel(0, 0, St7735Color::White as u16);
-    // st7735_drawFastVLine(10, 0, 10, St7735Color::Blue as u16);
+    st7735_print(b"stm-scope", 0, 0, St7735Color::Green, St7735Color::Black);
+    //st7735_print(env!("CARGO_PKG_VERSION").as_ref(),
+    //             10 * 8, 0, St7735Color::Green, St7735Color::Black);
 
     // signal generator (DAC, DMA, TIM, GPIO output) setup
     siggen_setup();
@@ -302,16 +299,16 @@ fn set_siggen_freq_from_index(i: usize) {
     let f = &SIGGEN_FREQUENCIES[i];
     siggen_set_freq(f.frequency);
     clear_status_line();
-    st7735_print(0, 116, b"siggen freq:", St7735Color::Green, St7735Color::Black);
-    st7735_print(104, 116, f.label, St7735Color::Green, St7735Color::Black);
+    st7735_print(b"siggen freq:", 0, 116, St7735Color::Green, St7735Color::Black);
+    st7735_print(f.label, 104, 116, St7735Color::Green, St7735Color::Black);
 }
 
 fn set_capture_timebase_from_index(i: usize) {
     let t = &TIMEBASE_INTERVALS[i];
     capture_set_timebase(t.sample_rate);
     clear_status_line();
-    st7735_print(0, 116, t.label, St7735Color::Green, St7735Color::Black);
-    st7735_print(8 * t.label.len() as u8, 116, b"/div", St7735Color::Green, St7735Color::Black);
+    st7735_print(t.label, 0, 116, St7735Color::Green, St7735Color::Black);
+    st7735_print(b"/div", 8 * t.label.len() as u8, 116, St7735Color::Green, St7735Color::Black);
 }
 
 fn clear_status_line() {

@@ -390,7 +390,7 @@ pub fn st7735_putc(x: u8, y: u8, c: u8, fg: St7735Color, bg: St7735Color) {
 }
 
 #[allow(unused)]
-pub fn st7735_print(x0: u8, y: u8, text: &[u8], fg: St7735Color, bg: St7735Color) {
+pub fn st7735_print(text: &[u8], x0: u8, y: u8, fg: St7735Color, bg: St7735Color) {
     let height = unsafe { st7735_get_height() };
     let width = unsafe { st7735_get_width() };
     let mut x = x0;
@@ -405,3 +405,15 @@ pub fn st7735_print(x0: u8, y: u8, text: &[u8], fg: St7735Color, bg: St7735Color
         x += 8;
     }
 }
+
+// #[allow(unused)]
+// pub fn st7735_print_hex_u32(i: u32, x: u8, y: u8, fg: St7735Color, bg: St7735Color) {
+//     const C: [u8; 16] = *b"0123456789abcdef";
+//     let mut buf = [0u8; 4];
+//
+//     buf[0] = C[((i >> 12) & 0xf) as usize];
+//     buf[1] = C[((i >>  8) & 0xf) as usize];
+//     buf[2] = C[((i >>  4) & 0xf) as usize];
+//     buf[3] = C[( i        & 0xf) as usize];
+//     st7735_print(&buf, x, y, fg, bg);
+// }
