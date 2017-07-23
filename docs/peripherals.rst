@@ -29,6 +29,7 @@ stm32f3-oscilloscope:
    Capture
       ADC1
       PC1  - input GPIO
+      TIM15
    Signal Generator
       DAC1 channels 1 and 2
       DMA2 channels 3 and 4

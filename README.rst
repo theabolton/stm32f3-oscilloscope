@@ -24,7 +24,19 @@ fun!
 
 Here's what the current prototype looks like:
 
-.. image:: docs/20170719-prototype.jpg
+.. |pic1| image:: docs/20170719-prototype.jpg
+   :width: 98%
+   :alt: prototype
+   :target: docs/20170719-prototype.jpg
+
+.. |pic2| image:: docs/20170722-testing.jpg
+   :width: 98%
+   :alt: testing the prototype
+   :target: docs/20170722-testing.jpg
+
++--------+--------+
+| |pic1| | |pic2| |
++--------+--------+
 
 The hardware used:
 
@@ -34,6 +46,36 @@ The hardware used:
   "128x160 Color LCD Module with SD Slot"),
 * Four momentary-on pushbuttons,
 * Various other discrete components for the input stage and support circuits.
+
+Current Status
+==============
+At this early stage in the project, these features are working:
+
+* Single channel sample capture, at up to 16,000 samples per second. The sample
+  rate is very limited currently due to the synchronous display of samples as
+  they are captured. Once I have DMA handling the captured data, sample rates of
+  up to 3Msps should be possible.
+* Display of the sampled data on the LCD.
+* Selection of sample rate via pushbutton 1, from 16,000sps (2ms/div) out to
+  1sps (32s/div).
+* Signal generation outputs, one a rough sine wave, the other a ramp.
+* Selection of the signal generator output frequency via pushbutton 4, from 1Hz
+  to 10kHz, in half-decade steps.
+
+Roadmap
+=======
+Still to be done:
+
+* Use DMA to handle captured data, to enable higher sample rates.
+* Optimize sampling time per sample, based on sampling rate.
+* Add a trigger mechanism, probably using an on-board comparator, and one channel
+  of the DAC for the trigger reference voltage.
+* Add adjustable vertical gain, perhaps using the on-board op-amp as a programmable
+  gain amplifier.
+* Add dual-channel capability, or possibly even quad-channel and/or logic analyzer
+  mode.
+* Finish designing and prototyping the analog input stage.
+* Use a rotary control to make the user interface easier to use.
 
 Documentation
 =============
