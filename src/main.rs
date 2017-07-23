@@ -24,7 +24,7 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// For a summary of the peripherals used, see doc/peripherals.rst
+// For a summary of the peripherals used, see docs/peripherals.rst
 
 #![feature(core_intrinsics)]
 #![feature(used)]
@@ -106,7 +106,6 @@ struct SiggenFreq {
 }
 
 const SIGGEN_FREQUENCIES: [SiggenFreq; 9] = [
-    // -FIX- label abbreviations are ugly
     SiggenFreq { frequency:     1, label: b"1Hz" },
     SiggenFreq { frequency:     3, label: b"3Hz" },
     SiggenFreq { frequency:    10, label: b"10Hz" },
@@ -120,17 +119,28 @@ const SIGGEN_FREQUENCIES: [SiggenFreq; 9] = [
 
 // timebase intervals
 struct TimebaseInterval {
-    delay: u32, // -FIX- for now, milliseconds between samples
+    sample_rate: u32, // samples per second
     label: &'static [u8],
 }
 
-const TIMEBASE_INTERVALS: [TimebaseInterval; 6] = [
-    TimebaseInterval { delay:  0, label: b"freerun" },
-    TimebaseInterval { delay:  1, label: b"32ms" },
-    TimebaseInterval { delay:  3, label: b".1s" },
-    TimebaseInterval { delay:  6, label: b".2s" },
-    TimebaseInterval { delay: 15, label: b".5s" },
-    TimebaseInterval { delay: 31, label: b"1s" },
+const TIMEBASE_INTERVALS: [TimebaseInterval; 14] = [
+    TimebaseInterval { sample_rate:       1, label: b"32s" },
+    TimebaseInterval { sample_rate:      32, label: b"1s" },
+    TimebaseInterval { sample_rate:      64, label: b".5s" },
+    TimebaseInterval { sample_rate:     160, label: b".2s" },
+    TimebaseInterval { sample_rate:     320, label: b".1s" },
+    TimebaseInterval { sample_rate:     640, label: b"50ms" },
+    TimebaseInterval { sample_rate:    1600, label: b"20ms" },
+    TimebaseInterval { sample_rate:    3200, label: b"10ms" },
+    TimebaseInterval { sample_rate:    6400, label: b"5ms" },
+    TimebaseInterval { sample_rate:   16000, label: b"2ms" },
+    TimebaseInterval { sample_rate:   32000, label: b"1ms" },
+    TimebaseInterval { sample_rate:   64000, label: b".5ms" },
+    TimebaseInterval { sample_rate:  160000, label: b".2ms" },
+    TimebaseInterval { sample_rate:  320000, label: b".1ms" },
+    //TimebaseInterval { sample_rate:  640000, label: b"~50us" }, // 49.777µs/div
+    //TimebaseInterval { sample_rate: 1600000, label: b"20us" },
+    //TimebaseInterval { sample_rate: 3130434, label: b"~10us" }, // 10.222µs/div
 ];
 
 // ======== main ========
@@ -215,15 +225,17 @@ fn main() {
 
     let mut siggen_freq_index = 6; // 1kHz
     set_siggen_freq_from_index(siggen_freq_index);
-    let mut timebase = 1;
+    let mut timebase_index = TIMEBASE_INTERVALS.len() / 2; // -FIX- something in the middle
+    set_capture_timebase_from_index(timebase_index);
     let mut capture = [255u8; 160];
     let mut xi = 0;
 
-    // -FIX- For now, this is just scaffolding code to get things running. There is no dedicated
-    // timer yet to drive the sampling, nor DMA yet to handle sampled values, so this loop just
-    // manually samples the input, then busy-waits on the SysTick timer (using rather imprecise
-    // intervals).
-    // start continuous conversion
+    // -FIX- For now, this is still scaffolding to get things running. The ADC conversions are
+    // driven by a timer, but there is no DMA yet to handle the sampled values. Instead, this
+    // polls the ADC for completion of each sample, and synchronously sends it to the display,
+    // the overhead of which limits the sample rate to something just over 16,000 samples per
+    // second.
+    // start ADC conversions (timer is already running)
     let adc1 = ADC1.get();
     unsafe { (*adc1).cr.modify(|_, w| w.adstart().bits(1)); }
     loop {
@@ -266,21 +278,13 @@ fn main() {
             xi = 0;
             led_toggle(LD5);
         }
-        // delay before next conversion
-        let delay = TIMEBASE_INTERVALS[timebase].delay;
-        if delay > 0 {
-            delay_ms(delay);
-        }
 
         // button 1 (left): change timebase
         if button_get_changed(0) {
             button_reset_changed(0);
             if button_get_state(0) {
-                timebase = (timebase + 1) % TIMEBASE_INTERVALS.len();
-                let label = &TIMEBASE_INTERVALS[timebase].label;
-                st7735_print(0, 116, label, St7735Color::Green, St7735Color::Black);
-                st7735_print(8 * label.len() as u8, 116, b"/div",
-                             St7735Color::Green, St7735Color::Black);
+                timebase_index = (timebase_index + 1) % TIMEBASE_INTERVALS.len();
+                set_capture_timebase_from_index(timebase_index);
             }
         }
         // button 4 (right): change signal generator frequency
@@ -297,8 +301,21 @@ fn main() {
 fn set_siggen_freq_from_index(i: usize) {
     let f = &SIGGEN_FREQUENCIES[i];
     siggen_set_freq(f.frequency);
+    clear_status_line();
     st7735_print(0, 116, b"siggen freq:", St7735Color::Green, St7735Color::Black);
     st7735_print(104, 116, f.label, St7735Color::Green, St7735Color::Black);
+}
+
+fn set_capture_timebase_from_index(i: usize) {
+    let t = &TIMEBASE_INTERVALS[i];
+    capture_set_timebase(t.sample_rate);
+    clear_status_line();
+    st7735_print(0, 116, t.label, St7735Color::Green, St7735Color::Black);
+    st7735_print(8 * t.label.len() as u8, 116, b"/div", St7735Color::Green, St7735Color::Black);
+}
+
+fn clear_status_line() {
+    st7735_fill_rect(0, 116, 160, 12, St7735Color::Black as u16);
 }
 
 // ======== exception handlers, including SysTick ========
