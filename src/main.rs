@@ -42,12 +42,10 @@ mod st7735;
 mod sysclk;
 
 use core::intrinsics::{volatile_load, volatile_store};
-use cortex_m::{asm, exception};
-use cortex_m::peripheral::{SCB, SYST};
-use stm32f30x::{GPIOD, RCC};
-use stm32f30x::ADC1; // -FIX- temporary
+use cortex_m::exception;
+use cortex_m::peripheral::{SCB, SYST, SystClkSource};
+use stm32f30x::{DMA1, GPIOD, RCC, interrupt};
 
-use capture::*;
 use led::*;
 use led::Led::*;
 use siggen::*;
@@ -123,7 +121,7 @@ struct TimebaseInterval {
     label: &'static [u8],
 }
 
-const TIMEBASE_INTERVALS: [TimebaseInterval; 14] = [
+const TIMEBASE_INTERVALS: [TimebaseInterval; 17] = [
     TimebaseInterval { sample_rate:       1, label: b"32s" },
     TimebaseInterval { sample_rate:      32, label: b"1s" },
     TimebaseInterval { sample_rate:      64, label: b".5s" },
@@ -138,9 +136,9 @@ const TIMEBASE_INTERVALS: [TimebaseInterval; 14] = [
     TimebaseInterval { sample_rate:   64000, label: b".5ms" },
     TimebaseInterval { sample_rate:  160000, label: b".2ms" },
     TimebaseInterval { sample_rate:  320000, label: b".1ms" },
-    //TimebaseInterval { sample_rate:  640000, label: b"~50us" }, // 49.777µs/div
-    //TimebaseInterval { sample_rate: 1600000, label: b"20us" },
-    //TimebaseInterval { sample_rate: 3130434, label: b"~10us" }, // 10.222µs/div
+    TimebaseInterval { sample_rate:  640000, label: b"~50us" }, // 49.777µs/div
+    TimebaseInterval { sample_rate: 1600000, label: b"20us" },
+    TimebaseInterval { sample_rate: 3130434, label: b"~10us" }, // 10.222µs/div
 ];
 
 // ======== main ========
@@ -162,6 +160,7 @@ fn main() {
                                   .iopeen().enabled());
 
         // initialize LEDs
+        led_init(LD3);
         led_init(LD4);
         led_init(LD5);
 
@@ -204,7 +203,7 @@ fn main() {
     siggen_setup();
 
     // capture (ADC, DMA, TIM, GPIO input) setup
-    capture_setup();
+    capture::setup();
 
     // turn on LD4 (northwest, blue) to show we've gotten this far
     led_on(LD4);
@@ -222,60 +221,83 @@ fn main() {
 
     // ======== main loop ========
 
+    enum SweepState {
+        Before, // timer running, but capture not started
+        During, // capture running or finished, display in progress
+        After,  // capture and display finished
+    };
+    let mut state = SweepState::Before;
+
     let mut siggen_freq_index = 6; // 1kHz
     set_siggen_freq_from_index(siggen_freq_index);
     let mut timebase_index = TIMEBASE_INTERVALS.len() / 2; // -FIX- something in the middle
     set_capture_timebase_from_index(timebase_index);
-    let mut capture = [255u8; 160];
-    let mut xi = 0;
+    let mut previous_y = [255u8; 160];
+    let mut x_out = 0;
 
-    // -FIX- For now, this is still scaffolding to get things running. The ADC conversions are
-    // driven by a timer, but there is no DMA yet to handle the sampled values. Instead, this
-    // polls the ADC for completion of each sample, and synchronously sends it to the display,
-    // the overhead of which limits the sample rate to something just over 16,000 samples per
-    // second.
-    // start ADC conversions (timer is already running)
-    let adc1 = ADC1.get();
-    unsafe { (*adc1).cr.modify(|_, w| w.adstart().bits(1)); }
     loop {
-        // poll ADC1
-        // - wait for EOC flag
-        while unsafe { (*adc1).isr.read().eoc().bits() } == 0 {}
-        // - get data
-        let raw_conversion = unsafe { (*adc1).dr.read().regular_data().bits() };
-
-        // erase old plot
-        let x = xi as i16;
-        if capture[xi] < 255 {
-            if x % 32 == 0 && (127 - capture[xi]) % 32 == 0 {
-                st7735_drawPixel(x, 127 - capture[xi] as i16, St7735Color::Green as u16);
-            } else {
-                st7735_drawPixel(x, 127 - capture[xi] as i16, St7735Color::Black as u16);
+        match state {
+            SweepState::Before => {
+                // begin the next sweep of 160 samples
+                capture::begin_sweep();
+                // turn on LD3 at the beginning of the capture sweep
+                led_on(LD3);
+                state = SweepState::During;
+                x_out = 0;
             }
-        }
-        // plot new value
-        let microvolts_per_lsb = 806u32; // 3.3v / 2^12 bits * 10^6
-        let microvolts = raw_conversion as u32 * microvolts_per_lsb;
-        // Note that the 3.3v * 10^6 just cancels out in these calculations; we could just right
-        // shift by 5 bits. But later we'll want the vertical gain represented (roughly) in terms
-        // of voltage.
-        let microvolts_per_y = 25_781u32; // 3.3v * 10^6 / 128 pixels
-        let y = (microvolts / microvolts_per_y) as i16;
-        if y < 0 { // (can't yet happen)
-            st7735_drawPixel(x, 127, St7735Color::Red as u16);
-            capture[xi] = 0;
-        } else if y > 127 {
-            st7735_drawPixel(x, 0, St7735Color::Red as u16);
-            capture[xi] = 127;
-        } else {
-            st7735_drawPixel(x, 127 - y, St7735Color::White as u16);
-            capture[xi] = y as u8;
-        }
-        // end of sweep?
-        xi += 1;
-        if xi >= 160 {
-            xi = 0;
-            led_toggle(LD5);
+            SweepState::During => {
+                // Plot data as it becomes available via DMA from ADC1
+                // - read the number of samples transfered by DMA controller
+                let x_in = capture::get_transferred_sample_count();
+                if x_in > x_out {
+                    // erase old plot
+                    let x = x_out as i16;
+                    let y = previous_y[x_out] as i16;
+                    if y < 255 {
+                        if x % 32 == 0 && y % 32 == 0 {
+                            st7735_drawPixel(x, y, St7735Color::Green as u16);
+                        } else {
+                            st7735_drawPixel(x, y, St7735Color::Black as u16);
+                        }
+                    }
+                    // plot new value
+                    let raw_conversion = capture::channel_1_data()[x_out];
+                    let microvolts_per_lsb = 806u32; // 3.3v / 2^12 bits * 10^6
+                    let microvolts = raw_conversion as u32 * microvolts_per_lsb;
+                    // Note that the 3.3v * 10^6 just cancels out in these calculations; we could
+                    // just right shift by 5 bits. But later we'll want the vertical gain
+                    // represented in terms of voltage, so build it in now.
+                    let microvolts_per_y = 25_781u32; // 3.3v * 10^6 / 128 pixels
+                    let y = 127 - (microvolts / microvolts_per_y) as i16;
+                    if y < 0 { // (can't yet happen)
+                        st7735_drawPixel(x, 0, St7735Color::Red as u16);
+                        previous_y[x_out] = 0;
+                    } else if y > 127 {
+                        st7735_drawPixel(x, 127, St7735Color::Red as u16);
+                        previous_y[x_out] = 127;
+                    } else {
+                        st7735_drawPixel(x, y, St7735Color::White as u16);
+                        previous_y[x_out] = y as u8;
+                    }
+                    // end of sweep?
+                    x_out += 1;
+                    if x_out >= 160 {
+                        state = SweepState::After;
+                    }
+                }
+            }
+            SweepState::After => {
+                // Sweep is finished (both capture and display)
+                // - disable DMA and prepare for next sweep
+                capture::finish_sweep();
+                if capture::check_adc_ovr_flag() {
+                    #[cfg(debug_assertions)]
+                    st7735_print(b"OVR set", 0, 104, St7735Color::Green, St7735Color::Black);
+                }
+                // toggle LD5 at the end of each display sweep
+                led_toggle(LD5);
+                state = SweepState::Before;
+            }
         }
 
         // button 1 (left): change timebase
@@ -307,7 +329,7 @@ fn set_siggen_freq_from_index(i: usize) {
 
 fn set_capture_timebase_from_index(i: usize) {
     let t = &TIMEBASE_INTERVALS[i];
-    capture_set_timebase(t.sample_rate);
+    capture::set_timebase(t.sample_rate);
     clear_status_line();
     st7735_print(t.label, 0, 116, St7735Color::Green, St7735Color::Black);
     st7735_print(b"/div", 8 * t.label.len() as u8, 116, St7735Color::Green, St7735Color::Black);
@@ -374,8 +396,15 @@ pub extern "C" fn delay_ms(ms: u32) {
 #[allow(dead_code)]
 #[used]
 #[link_section = ".rodata.interrupts"]
-static INTERRUPTS: [extern "C" fn(); 240] = [default_handler; 240];
+static INTERRUPTS: interrupt::Handlers = interrupt::Handlers {
+    Dma1Ch1: dma1ch1_interrupt_handler,
+    ..interrupt::DEFAULT_HANDLERS
+};
 
-extern "C" fn default_handler() {
-    asm::bkpt();
+extern "C" fn dma1ch1_interrupt_handler(_ctxt: interrupt::Dma1Ch1) {
+    // turn off LD3 at the end of the capture sweep
+    led_off(LD3);
+    // clear the DMA1 channel 1 transfer complete interrupt flag TCIF
+    let dma1 = DMA1.get();
+    unsafe { (*dma1).ifcr.write(|w| w.ctcif1().bits(1)); }
 }

@@ -18,7 +18,8 @@ stm32f3-oscilloscope:
       PD15 - pushbutton 4 (right, siggen frequency)
    LEDs
       PE8 / LD4  - (NW, blue) initialization completed indicator
-      PE10 / LD5 - (NE, orange) toggle after each display sweep
+      PE9 / LD3  - (N, red) on during each capture sweep
+      PE10 / LD5 - (NE, orange) toggled after each display sweep
    ST7735 LCD Display
       SPI2
       PB10 - CSE/CS
@@ -27,7 +28,8 @@ stm32f3-oscilloscope:
       PB14 - RST
       PB15 - SPI2 SDA/MOSI
    Capture
-      ADC1
+      ADC1 channel 7
+      DMA1 channel 1
       PC1  - input GPIO
       TIM15
    Signal Generator
@@ -44,3 +46,6 @@ stm32f3-oscilloscope:
       APB1 at 36MHz
       FLASH set to 2 wait states
       SysTick update exception every 1ms
+   Exceptions
+      SysTick exception (delay_ms() counter and pushbutton polling)
+      DMA1_Channel1 interrupt (end-of-transfer)

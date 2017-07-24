@@ -117,7 +117,7 @@ pub fn siggen_setup() {
         // - assuming reset state
         dma2.ccr3.modify(|_, w| unsafe {
             w.mem2mem().bits(0)  // memory-to-memory mode disabled
-             .pl().bits(0b10)    // high priority
+             .pl().bits(0b01)    // medium priority
              .msize().bits(0b01) // memory data size 16 bits
              .psize().bits(0b01) // peripheral data size 16 bits
              .minc().bits(1)     // memory increment enabled
@@ -139,7 +139,7 @@ pub fn siggen_setup() {
         // - assuming reset state
         dma2.ccr4.modify(|_, w| unsafe {
             w.mem2mem().bits(0)  // memory-to-memory mode disabled
-             .pl().bits(0b10)    // high priority
+             .pl().bits(0b01)    // medium priority
              .msize().bits(0b00) // memory data size 8 bits
              .psize().bits(0b00) // peripheral data size 8 bits
              .minc().bits(1)     // memory increment enabled
