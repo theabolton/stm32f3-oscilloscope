@@ -166,11 +166,13 @@ fn main() {
         led_init(LD5);
 
         // enable Cortex-M SysTick counter
-        syst.set_reload(8000); // set to update every 8000 clocks, or every 1ms
-        unsafe { scb.shpr[11].write(0xf0); } // set SysTick exception (interrupt) priority to lowest possible
+        syst.set_reload(9000); // set to update every 9000 clocks, or every 1ms
+        // - set SysTick exception (interrupt) priority to lowest possible
+        unsafe { scb.shpr[11].write(0xf0); } // write to PRI_15 field of SHPR3
         syst.clear_current();
-        // -FIX- SVD has incorrect identifiers here, so the API is nonsensical:
-        unsafe { syst.csr.write(0b100); } // set clock to AHB, not AHB/8
+        // SVD has incorrect identifiers here, so the API is nonsensical:
+        // 'Core' means AHB, 'External' means AHB/8
+        syst.set_clock_source(SystClkSource::External);
         syst.enable_interrupt();
         syst.enable_counter();
 
