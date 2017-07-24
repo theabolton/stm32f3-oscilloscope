@@ -8,17 +8,17 @@ STM32F3 Oscilloscope
    :target: https://en.wikipedia.org/wiki/MIT_License
    :alt: MIT Licensed
 
-OMG, oscilloscopes are the absolute coolest ever! No tool is better at letting
+Oscilloscopes are the absolute coolest tool ever! Nothing is better at letting
 us see, in real time, the "magic" working inside electronics.
 
-So, naturally, I want to build them. This is a project using an STM32F303
+So, naturally, I want to build one. This is a project using an STM32F303
 Discovery development board, programmed in Rust, to make a low-bandwidth
 digital storage oscilloscope (DSO).
 
 Why? It's been done hundreds of times before, and the end result is not
 terribly useful (at least not compared to my beloved Tek 2252).
 
-Because: I'll learn a lot about developing for embedded in Rust, and about
+Because: I'll learn more about developing for embedded in Rust, and about
 analog electronics and doing analog-to-digital conversions well, and it'll be
 fun!
 
@@ -51,29 +51,29 @@ Current Status
 ==============
 At this early stage in the project, these features are working:
 
-* Single channel sample capture, at up to 16,000 samples per second. The sample
-  rate is very limited currently due to the synchronous display of samples as
-  they are captured. Once I have DMA handling the captured data, sample rates of
-  up to 3Msps should be possible.
-* Display of the sampled data on the LCD.
-* Selection of sample rate via pushbutton 1, from 16,000sps (2ms/div) out to
-  1sps (32s/div).
+* Single channel sample capture, at up to 1,600,000 samples per second.
+* Display of the sampled data on the LCD, limited to about 100 sweeps per
+  second due to the bandwidth of the LCD controller.
+* Selection of timebase via pushbutton 1, in standard (1x, 2x, 5x per decade)
+  steps from 20µs/div out to 1s/div, plus a strip-chart like 32s/div mode.
 * Signal generation outputs, one a rough sine wave, the other a ramp.
 * Selection of the signal generator output frequency via pushbutton 4, from 1Hz
   to 10kHz, in half-decade steps.
 
 Roadmap
 =======
-Still to be done:
+Planned improvements include:
 
-* Use DMA to handle captured data, to enable higher sample rates.
+* Rust-ify the code: much of it is currently written using C idioms.
 * Optimize sampling time per sample, based on sampling rate.
+* Evaluate the usefulness of higher-sample-rate, lower-accuracy configurations
+  (the theoretical limit is 9Msps at 6 bits with increased timing jitter).
 * Add a trigger mechanism, probably using an on-board comparator, and one channel
   of the DAC for the trigger reference voltage.
 * Add adjustable vertical gain, perhaps using the on-board op-amp as a programmable
   gain amplifier.
-* Add dual-channel capability, or possibly even quad-channel and/or logic analyzer
-  mode.
+* Add dual-channel capability, or possibly even quad-channel and/or a logic
+  analyzer mode.
 * Finish designing and prototyping the analog input stage.
 * Use a rotary control to make the user interface easier to use.
 
