@@ -11,7 +11,7 @@ STM32F3 Oscilloscope
 Oscilloscopes are the absolute coolest tool ever! Nothing is better at letting
 us see, in real time, the "magic" working inside electronics.
 
-So, naturally, I want to build one. This is a project using an STM32F303
+So, naturally, I want to build them. This project uses an STM32F303
 Discovery development board, programmed in Rust, to make a low-bandwidth
 digital storage oscilloscope (DSO).
 
@@ -80,8 +80,8 @@ Planned improvements include:
 Documentation
 =============
 
-* `Connections <docs/connections.html>`_
-* `Peripheral Usage <docs/peripherals.html>`_
+* `Connections <docs/connections.rst>`_
+* `Peripheral Usage <docs/peripherals.rst>`_
 
 License
 =======
